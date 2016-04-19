@@ -45,7 +45,7 @@ wsServer.on('connection', function (ws) {
             let token = (userData['token']) ? userData['token'] : null;
             if (!token && userData['name']) {
                 try {
-                    user.create(userData['name'], userData);
+                    token = user.create(userData['name'], userData);
                 }
                 catch (e) {
                     ws.close();
