@@ -11,11 +11,14 @@ const ws = require("ws");
 const configss = require("./lib/config");
 const auth = require('./lib/auth');
 const path = require('./lib/path');
+const mux = require('./lib/mux');
 path.set('config', __dirname + '/../config/');
 path.set('origin', __dirname + '/../');
 var app = express();
 var httpServer = http.createServer(app);
 var user = new auth.User();
+var muxobj = new mux.Mux();
+var count = 0;
 try {
     var configz = configss.getConfig(path.get('config'));
     configz.load('server.json');
@@ -34,26 +37,43 @@ function broadcast(wss, data) {
         wss.clients[i].send(data);
     }
 }
+muxobj.register("register", function (data) {
+    let token;
+    if ("name" in data) {
+        token = user.create(data['name'], data);
+    }
+    if (!token) {
+        throw 'token error';
+    }
+    return user.get(token);
+}).register("login", function (data) {
+    if ("token" in data) {
+        return user.get(data["token"]);
+    }
+    return {};
+});
 wsServer.on('connection', function (ws) {
+    count++;
+    console.log("user count:" + count);
     ws.on('message', function (message) {
-        let data = JSON.parse(message);
-        // TODO 紀錄log
-        console.log(data);
-        // TODO 修改此處邏輯
-        if (data['login']) {
-            let userData = data['login'];
-            let token = (userData['token']) ? userData['token'] : null;
-            if (!token && userData['name']) {
-                try {
-                    token = user.create(userData['name'], userData);
-                }
-                catch (e) {
-                    ws.close();
-                    // TODO 紀錄log
-                    console.log(e);
-                }
+        let data;
+        try {
+            console.log('input data: ' + message);
+            data = JSON.parse(message);
+        }
+        catch (e) {
+            ws.close();
+        }
+        for (let key in data) {
+            try {
+                let ret = JSON.stringify(muxobj.do(key, data[key]));
+                console.log('return data: ' + ret);
+                ws.send(ret);
             }
-            ws.send(JSON.stringify(user.get(token)));
+            catch (e) {
+                count--;
+                ws.close();
+            }
         }
     });
 });

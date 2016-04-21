@@ -34,11 +34,15 @@ export class User {
     }
     
     get(token:string) {
+        if (!token) {
+            return {};
+        }
+        
         if (!this.users[token]) {
             try {
                 this.users[token] = this.file.get(token);
             } catch (e) {
-                throw 'user not exists'
+                return {};
             }
         }
         
@@ -50,16 +54,17 @@ export class User {
         let token = this.token.create(name+'-'+time);
         if (data['name']) {
             try {
-                this.file.set(token, data);
                 data["token"] = token;
+                data["create_at"] = time;
+                this.file.set(token, data);
                 this.users[token] = data;
             } catch (e) {
-                throw e;
+                return false;
             }
             
             return token;
         }
         
-        throw 'user data error';
+        return false;
     }
 }
